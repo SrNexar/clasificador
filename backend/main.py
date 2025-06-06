@@ -4,17 +4,17 @@ from transformers import pipeline
 
 app = FastAPI()
 
-# Modelo Zero-Shot
+# Cargar el modelo de clasificación de texto
 classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
-# Etiquetas mejor explicadas
+# Definir las etiquetas de clasificación
 etiquetas = [
     "Necesita atención inmediata (Urgente)",
     "Puede esperar un poco (Moderado)",
     "No requiere atención (Normal)"
 ]
 
-# Clase para recibir mensajes
+# Definir el modelo de datos para la entrada
 class Mensaje(BaseModel):
     texto: str
 
@@ -22,22 +22,22 @@ class Mensaje(BaseModel):
 def clasificar(data: Mensaje):
     resultado = classifier(data.texto, etiquetas)
     
-    # Obtener los resultados
+    # Extraer la categoría y confianza del resultado
     categoria_completa = resultado["labels"][0]
     confianza = resultado["scores"][0]
 
-    # Regla: degradar si el score de urgente es bajo
+    # Verificar si la categoría es "Necesita atención inmediata" y ajustar si la confianza es baja
     if "inmediata" in categoria_completa and confianza < 0.85:
         categoria_completa = resultado["labels"][1]
         confianza = resultado["scores"][1]
 
-    # Extraer nombre corto (entre paréntesis)
+    # Extraer la categoría sin el texto adicional
     if "(" in categoria_completa and ")" in categoria_completa:
         categoria = categoria_completa.split("(")[-1].replace(")", "").strip()
     else:
         categoria = categoria_completa
 
-    # Detalles en porcentaje
+    # Preparar los detalles de la clasificación
     detalles = {
         lbl.split("(")[-1].replace(")", "").strip(): round(score * 100, 2)
         for lbl, score in zip(resultado["labels"], resultado["scores"])
